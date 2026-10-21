@@ -26,6 +26,7 @@
     services.insertAdjacentHTML('beforeend', `<button id="${id}" class="service" type="button" data-service="${name}" data-state="off"><span>${name}</span><small>выкл</small></button>`);
   });
   restore(saved);
+  if (!saved || !saved.mode) state.serviceStates = Object.fromEntries(['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)'].map(name => [name,'proxy']));
 
   form.addEventListener('input', update);
   form.addEventListener('change', (event) => { if (event.target.name === 'mode') applyModePreset(event.target.value); else update(); });
