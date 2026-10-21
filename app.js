@@ -12,22 +12,25 @@
     'Discord':['discord.com','discordapp.com','discordapp.net'],
     'Instagram':['instagram.com','cdninstagram.com'],
     'TikTok':['tiktok.com','tiktokv.com','tiktokcdn.com'],
+    'Meta / Facebook':['facebook.com','fbcdn.net','fb.me','messenger.com'],
+    'X (Twitter)':['x.com','twitter.com','twimg.com'],
     'Банки РФ':['sberbank.ru','sber.ru','tinkoff.ru','tbank.ru','vtb.ru','alfabank.ru'],
     'Госуслуги':['gosuslugi.ru','esia.gosuslugi.ru']
   };
-  const state = { tab:'json', autoUrl:'' };
+  const state = { tab:'json', autoUrl:'', serviceStates:{} };
   const saved = safeParse(localStorage.getItem('incy-builder-v1'));
   const form = $('#builder');
   const services = $('#services');
   Object.keys(serviceSets).forEach((name) => {
     const id = `service-${name}`;
-    services.insertAdjacentHTML('beforeend', `<label class="service"><input id="${id}" type="checkbox" data-service="${name}"><span>${name}</span></label>`);
+    services.insertAdjacentHTML('beforeend', `<button id="${id}" class="service" type="button" data-service="${name}" data-state="off"><span>${name}</span><small>выкл</small></button>`);
   });
   restore(saved);
 
   form.addEventListener('input', update);
   form.addEventListener('change', update);
-  services.addEventListener('change', update);
+  services.addEventListener('click', (event) => { const chip = event.target.closest('[data-service]'); if (chip && !chip.disabled) cycleService(chip.dataset.service); });
+  $('#clearServices').addEventListener('click', () => { state.serviceStates = {}; update(); });
   $('#remoteDNS').addEventListener('change', () => { $('#customDNS').classList.toggle('hidden', $('#remoteDNS').value !== 'custom'); });
   document.querySelectorAll('.tabs button').forEach((button) => button.addEventListener('click', () => { state.tab = button.dataset.tab; document.querySelector('.tabs .active').classList.remove('active'); button.classList.add('active'); render(); }));
   $('#copy').addEventListener('click', copyCurrent);
@@ -44,7 +47,8 @@
       else if (el.type === 'radio') el.checked = el.value === value;
       else el.value = String(value);
     });
-    (data.selectedServices || []).forEach(name => { const el = document.querySelector(`[data-service="${cssEscape(name)}"]`); if (el) el.checked = true; });
+    state.serviceStates = data.serviceStates && typeof data.serviceStates === 'object' ? data.serviceStates : {};
+    (data.selectedServices || []).forEach(name => { if (!state.serviceStates[name]) state.serviceStates[name] = 'proxy'; });
     $('#customDNS').classList.toggle('hidden', $('#remoteDNS').value !== 'custom');
   }
   function cssEscape(v) { return v.replace(/["\\]/g, '\\$&'); }
@@ -60,12 +64,13 @@
     return false;
   }
   function httpsUrl(v) { try { const u = new URL(v); return u.protocol === 'https:' && u.hostname.length < 254; } catch { return false; } }
-  function selectedDomains() { return [...document.querySelectorAll('[data-service]:checked')].flatMap(el => serviceSets[el.dataset.service]); }
+  function selectedDomains(kind) { return Object.entries(state.serviceStates).filter(([, choice]) => choice === kind).flatMap(([name]) => serviceSets[name] || []); }
+  function cycleService(name) { const order = ['off','proxy','direct']; const current = state.serviceStates[name] || 'off'; const next = order[(order.indexOf(current) + 1) % order.length]; if (next === 'off') delete state.serviceStates[name]; else state.serviceStates[name] = next; update(); }
   function mode() { return document.querySelector('[name="mode"]:checked').value; }
   function collect() {
     const currentMode = mode();
-    const directDomains = lines('#directDomains','domain'); const directIPs = lines('#directIPs','ip');
-    const serviceDomains = currentMode === 'global' ? [] : selectedDomains();
+    const directDomains = [...(currentMode === 'global' ? [] : selectedDomains('direct')), ...lines('#directDomains','domain')]; const directIPs = lines('#directIPs','ip');
+    const serviceDomains = currentMode === 'global' ? [] : selectedDomains('proxy');
     const proxyDomains = [...new Set([...serviceDomains, ...lines('#proxyDomains','domain')])]; const proxyIPs = lines('#proxyIPs','ip');
     if (currentMode === 'ru-direct') { directDomains.unshift('geosite:ru'); directIPs.unshift('geoip:ru'); }
     const remote = value('#remoteDNS'); const domestic = value('#domesticDNS');
@@ -88,17 +93,15 @@
     const profile = collect(); state.profile = profile;
     const servicesDisabled = mode() === 'global';
     services.classList.toggle('is-disabled', servicesDisabled);
-    services.querySelectorAll('[data-service]').forEach((input) => { input.disabled = servicesDisabled; });
-    services.querySelectorAll('.service').forEach((card) => {
-      card.setAttribute('aria-disabled', String(servicesDisabled));
-      card.style.opacity = servicesDisabled ? '.48' : '';
-      card.style.cursor = servicesDisabled ? 'not-allowed' : '';
-    });
+    services.querySelectorAll('[data-service]').forEach((chip) => { chip.disabled = servicesDisabled; chip.setAttribute('aria-disabled', String(servicesDisabled)); });
+    $('#clearServices').disabled = servicesDisabled;
+    paintServices();
     const data = {}; form.querySelectorAll('input,textarea,select').forEach(el => { if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : el.value; if (el.name === 'mode' && el.checked) data.mode = el.value; });
-    data.selectedServices = [...document.querySelectorAll('[data-service]:checked')].map(x=>x.dataset.service); localStorage.setItem('incy-builder-v1', JSON.stringify(data));
+    data.serviceStates = state.serviceStates; localStorage.setItem('incy-builder-v1', JSON.stringify(data));
     const labels = {global:'Весь трафик через прокси',selective:'Только нужные сервисы','ru-direct':'Россия напрямую'}; $('#summary').textContent = labels[mode()];
     render();
   }
+  function paintServices() { services.querySelectorAll('[data-service]').forEach((chip) => { const choice = state.serviceStates[chip.dataset.service] || 'off'; chip.dataset.state = choice; chip.querySelector('small').textContent = choice === 'proxy' ? 'через прокси' : choice === 'direct' ? 'напрямую' : 'выкл'; }); }
   function issues() {
     const warnings=[];
     ['#proxyDomains','#directDomains','#blockDomains'].forEach(id => { const raw=value(id).split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean); if(raw.some(x=>!validate(x,'domain'))) warnings.push('Часть доменов исключена: допускаются домены и geosite:теги без пробелов.'); });
