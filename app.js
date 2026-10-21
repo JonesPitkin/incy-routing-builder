@@ -28,7 +28,7 @@
   restore(saved);
 
   form.addEventListener('input', update);
-  form.addEventListener('change', update);
+  form.addEventListener('change', (event) => { if (event.target.name === 'mode') applyModePreset(event.target.value); else update(); });
   services.addEventListener('click', (event) => { const chip = event.target.closest('[data-service]'); if (chip && !chip.disabled) cycleService(chip.dataset.service); });
   $('#clearServices').addEventListener('click', () => { state.serviceStates = {}; update(); });
   $('#remoteDNS').addEventListener('change', () => { $('#customDNS').classList.toggle('hidden', $('#remoteDNS').value !== 'custom'); });
@@ -40,6 +40,9 @@
   function safeParse(text) { try { return JSON.parse(text || '{}'); } catch { return {}; } }
   function restore(data) {
     if (!data || typeof data !== 'object') return;
+    if (data.mode === 'selective') data.mode = 'direct';
+    if (data.mode === 'global') data.mode = 'proxy';
+    if (data.mode === 'ru-direct') data.mode = 'direct';
     Object.entries(data).forEach(([key, value]) => {
       const el = document.getElementById(key);
       if (!el) return;
@@ -69,15 +72,16 @@
   function mode() { return document.querySelector('[name="mode"]:checked').value; }
   function collect() {
     const currentMode = mode();
-    const directDomains = [...(currentMode === 'global' ? [] : selectedDomains('direct')), ...lines('#directDomains','domain')]; const directIPs = lines('#directIPs','ip');
-    const serviceDomains = currentMode === 'global' ? [] : selectedDomains('proxy');
+    const whitelistDomains = currentMode === 'whitelist' ? lines('#whitelistDomains','domain') : []; const whitelistIPs = currentMode === 'whitelist' ? lines('#whitelistIPs','ip') : [];
+    const directDomains = [...(currentMode === 'direct' ? selectedDomains('direct') : []), ...whitelistDomains, ...lines('#directDomains','domain')]; const directIPs = [...whitelistIPs, ...lines('#directIPs','ip')];
+    const serviceDomains = currentMode === 'direct' ? selectedDomains('proxy') : [];
     const proxyDomains = [...new Set([...serviceDomains, ...lines('#proxyDomains','domain')])]; const proxyIPs = lines('#proxyIPs','ip');
-    if (currentMode === 'ru-direct') { directDomains.unshift('geosite:ru'); directIPs.unshift('geoip:ru'); }
+    if (currentMode === 'proxy') { directDomains.unshift('geosite:ru'); directIPs.unshift('geoip:ru'); }
     const remote = value('#remoteDNS'); const domestic = value('#domesticDNS');
     const dns = remote === 'google' ? ['https://dns.google/dns-query','8.8.8.8'] : remote === 'custom' ? [value('#customDNSUrl'),value('#customDNSIP')] : ['https://cloudflare-dns.com/dns-query','1.1.1.1'];
     const local = domestic === 'cloudflare' ? ['DoH','https://cloudflare-dns.com/dns-query','1.1.1.1'] : domestic === 'google' ? ['DoH','https://dns.google/dns-query','8.8.8.8'] : ['DoU','','8.8.8.8'];
     const profile = {
-      Name: cleanName(value('#profileName')) || 'Профиль INCY', GlobalProxy: String(currentMode === 'global'), LastUpdated: String(Math.floor(Date.now()/1000)),
+      Name: cleanName(value('#profileName')) || 'Профиль INCY', GlobalProxy: String(currentMode !== 'direct'), LastUpdated: String(Math.floor(Date.now()/1000)),
       RemoteDNSType:'DoH', RemoteDNSDomain:dns[0], RemoteDNSIP:dns[1], DomesticDNSType:local[0], DomesticDNSDomain:local[1], DomesticDNSIP:local[2],
       DirectSites:[...new Set(directDomains)], DirectIp:[...new Set(directIPs)], ProxySites:proxyDomains, ProxyIp:proxyIPs,
       BlockSites:lines('#blockDomains','domain'), BlockIp:lines('#blockIPs','ip'), DomainStrategy:'IPIfNonMatch', FakeDNS:String(bool('#fakeDNS'))
@@ -91,21 +95,24 @@
   function cleanName(v) { return v.replace(/[\x00-\x1f<>]/g,'').slice(0,80); }
   function update() {
     const profile = collect(); state.profile = profile;
-    const servicesDisabled = mode() === 'global';
+    const currentMode = mode();
+    const servicesDisabled = currentMode !== 'direct';
     services.classList.toggle('is-disabled', servicesDisabled);
     services.querySelectorAll('[data-service]').forEach((chip) => { chip.disabled = servicesDisabled; chip.setAttribute('aria-disabled', String(servicesDisabled)); });
     $('#clearServices').disabled = servicesDisabled;
     paintServices();
     const data = {}; form.querySelectorAll('input,textarea,select').forEach(el => { if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : el.value; if (el.name === 'mode' && el.checked) data.mode = el.value; });
     data.serviceStates = state.serviceStates; localStorage.setItem('incy-builder-v1', JSON.stringify(data));
-    const labels = {global:'Весь трафик через прокси',selective:'Только нужные сервисы','ru-direct':'Россия напрямую'}; $('#summary').textContent = labels[mode()];
+    $('#whitelistBox').classList.toggle('hidden', currentMode !== 'whitelist');
+    const labels = {direct:'Трафик напрямую',proxy:'Трафик через прокси',whitelist:'Трафик по белому списку'}; const hints = {direct:'Предустановка добавит популярные зарубежные сервисы в правила прокси. Наборы ниже можно изменить.',proxy:'Весь трафик идёт через прокси, кроме geosite:ru и geoip:ru. Наборы сервисов здесь не нужны.',whitelist:'Весь трафик идёт через прокси. Добавьте домены и IP, которые должны остаться напрямую.'}; $('#summary').textContent = labels[currentMode]; $('#modeHint').textContent = hints[currentMode];
     render();
   }
+  function applyModePreset(nextMode) { const foreign = ['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)']; state.serviceStates = nextMode === 'direct' ? Object.fromEntries(foreign.map(name => [name,'proxy'])) : {}; update(); }
   function paintServices() { services.querySelectorAll('[data-service]').forEach((chip) => { const choice = state.serviceStates[chip.dataset.service] || 'off'; chip.dataset.state = choice; chip.querySelector('small').textContent = choice === 'proxy' ? 'через прокси' : choice === 'direct' ? 'напрямую' : 'выкл'; }); }
   function issues() {
     const warnings=[];
-    ['#proxyDomains','#directDomains','#blockDomains'].forEach(id => { const raw=value(id).split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean); if(raw.some(x=>!validate(x,'domain'))) warnings.push('Часть доменов исключена: допускаются домены и geosite:теги без пробелов.'); });
-    ['#proxyIPs','#directIPs','#blockIPs'].forEach(id => { const raw=value(id).split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean); if(raw.some(x=>!validate(x,'ip'))) warnings.push('Часть IP-правил исключена: используйте IP, CIDR или geoip:тег.'); });
+    ['#proxyDomains','#directDomains','#whitelistDomains','#blockDomains'].forEach(id => { const raw=value(id).split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean); if(raw.some(x=>!validate(x,'domain'))) warnings.push('Часть доменов исключена: допускаются домены и geosite:теги без пробелов.'); });
+    ['#proxyIPs','#directIPs','#whitelistIPs','#blockIPs'].forEach(id => { const raw=value(id).split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean); if(raw.some(x=>!validate(x,'ip'))) warnings.push('Часть IP-правил исключена: используйте IP, CIDR или geoip:тег.'); });
     if (value('#remoteDNS') === 'custom' && (!httpsUrl(value('#customDNSUrl')) || !validate(value('#customDNSIP'),'ip'))) warnings.push('Свой удалённый DNS не включён: нужен HTTPS URL DoH и IP.');
     if (value('#geoipurl') && !httpsUrl(value('#geoipurl'))) warnings.push('URL geoip.dat пропущен: разрешены только HTTPS-адреса.');
     if (value('#geositeurl') && !httpsUrl(value('#geositeurl'))) warnings.push('URL geosite.dat пропущен: разрешены только HTTPS-адреса.');
@@ -131,4 +138,5 @@
   async function copyCurrent(){ const text=currentText(); if(state.tab==='auto' && !httpsUrl(state.autoUrl)) { alert('Введите HTTPS-адрес уже размещённого JSON-файла.'); return;} try {await navigator.clipboard.writeText(text); $('#copy').textContent='Скопировано'; setTimeout(()=>$('#copy').textContent='Скопировать',1500);} catch {alert('Не удалось скопировать. Выделите текст в окне предпросмотра.');} }
   function downloadProfile(){const blob=new Blob([JSON.stringify(state.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.profile.Name.replace(/[^\wа-яё-]+/gi,'-').slice(0,50)||'incy-profile')+'.json';a.click();URL.revokeObjectURL(a.href);}
 })();
+
 
