@@ -32,6 +32,10 @@
 
   form.addEventListener('input', update);
   form.addEventListener('change', (event) => { if (event.target.name === 'mode') applyModePreset(event.target.value); else update(); });
+  document.querySelectorAll('.segmented label').forEach((card) => card.addEventListener('click', () => {
+    const nextMode = card.querySelector('[name="mode"]').value;
+    requestAnimationFrame(() => { if (mode() === nextMode) applyModePreset(nextMode); });
+  }));
   services.addEventListener('click', (event) => { const chip = event.target.closest('[data-service]'); if (chip && !chip.disabled) cycleService(chip.dataset.service); });
   $('#clearServices').addEventListener('click', () => { state.serviceStates = {}; update(); });
   $('#remoteDNS').addEventListener('change', () => { $('#customDNS').classList.toggle('hidden', $('#remoteDNS').value !== 'custom'); });
