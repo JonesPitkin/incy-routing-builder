@@ -17,10 +17,12 @@
       <form id="builder" novalidate>
         <section class="card"><div class="section-head"><span>01</span><div><h2>Режим маршрутизации</h2><p>Что делать с трафиком, для которого нет отдельного правила.</p></div></div>
           <div class="segmented" role="radiogroup" aria-label="Режим маршрутизации">
-            <label><input type="radio" name="mode" value="global"><b>Весь трафик через прокси</b><small>Подходит для поездок и небезопасных сетей</small></label>
-            <label><input type="radio" name="mode" value="selective" checked><b>Только нужные сервисы</b><small>Остальное подключается напрямую</small></label>
-            <label><input type="radio" name="mode" value="ru-direct"><b>Россия — напрямую</b><small>Зарубежные сервисы — через прокси</small></label>
+            <label><input type="radio" name="mode" value="direct" checked><b>Трафик напрямую</b><small>Только выбранные зарубежные сервисы — через прокси</small></label>
+            <label><input type="radio" name="mode" value="proxy"><b>Трафик через прокси</b><small>Российские сайты и IP — напрямую</small></label>
+            <label><input type="radio" name="mode" value="whitelist"><b>Трафик по белому списку</b><small>Только заданные адреса — напрямую</small></label>
           </div>
+          <p id="modeHint" class="hint">Предустановка добавит популярные зарубежные сервисы в правила прокси. Наборы ниже можно изменить.</p>
+          <div id="whitelistBox" class="rules-grid hidden"><label class="field"><span>Домены белого списка</span><textarea id="whitelistDomains" placeholder="example.ru&#10;geosite:ru"></textarea></label><label class="field"><span>IP / подсети белого списка</span><textarea id="whitelistIPs" placeholder="203.0.113.0/24&#10;geoip:ru"></textarea></label></div>
           <label class="field"><span>Название профиля</span><input id="profileName" maxlength="80" value="Мой профиль INCY" autocomplete="off"></label>
         </section>
         <section class="card"><div class="section-head"><span>02</span><div><h2>Готовые наборы правил</h2><p>Каждое нажатие: выкл → через прокси → напрямую → выкл.</p></div></div><div class="preset-note"><span>Выбирайте сервисы как готовые группы доменов — без ручного JSON.</span><button id="clearServices" class="quiet-button" type="button">Сбросить выбор</button></div><div id="services" class="services"></div><p class="hint">В режиме «Весь трафик через прокси» наборы не применяются: у такого профиля нет отдельных правил сервисов.</p></section>
@@ -38,5 +40,6 @@
       <aside class="output" aria-live="polite"><div class="output-top"><p class="eyebrow">ГОТОВЫЙ ПРОФИЛЬ</p><h2 id="summary">Только нужные сервисы</h2><span id="status" class="status">Проверка правил…</span></div><div id="warnings" class="warnings"></div><div class="tabs" role="tablist"><button class="active" data-tab="json">JSON</button><button data-tab="link">Импорт</button><button data-tab="auto">Автообновление</button></div><pre id="preview" tabindex="0"></pre><div class="actions"><button id="copy" class="primary" type="button">Скопировать</button><button id="download" class="secondary" type="button">Скачать .json</button></div><p class="tiny">Статический импорт добавляет профиль один раз. Автообновление работает только с уже размещённым HTTPS JSON.</p></aside>
     </div>
   </main>
-  <footer>Сгенерированный профиль не содержит ключей, серверов или учётных данных.</footer><script src="app.js?v=rocket-ui-1"></script>
+  <footer>Сгенерированный профиль не содержит ключей, серверов или учётных данных.</footer><script src="app.js?v=incy-modes-1"></script>
 </body></html>
+
