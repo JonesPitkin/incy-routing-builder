@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Локальный конструктор профилей маршрутизации INCY">
+  <title>INCY · Конструктор маршрутизации</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top"><a class="brand" href="#top" aria-label="На главную"><span>i</span> INCY <small>КОНСТРУКТОР</small></a><div class="privacy">● Всё остаётся в браузере</div></header>
+  <main id="top">
+    <section class="hero"><p class="eyebrow">МАРШРУТИЗАЦИЯ БЕЗ РУЧНОГО JSON</p><h1>Соберите профиль<br><em>под свой интернет.</em></h1><p class="lead">Выберите, что отправлять через прокси. Конструктор создаст совместимый профиль INCY и ссылку для импорта.</p></section>
+    <div class="layout">
+      <form id="builder" novalidate>
+        <section class="card"><div class="section-head"><span>01</span><div><h2>Режим маршрутизации</h2><p>Что делать с трафиком, для которого нет отдельного правила.</p></div></div>
+          <div class="segmented" role="radiogroup" aria-label="Режим маршрутизации">
+            <label><input type="radio" name="mode" value="global"><b>Весь трафик через прокси</b><small>Подходит для поездок и небезопасных сетей</small></label>
+            <label><input type="radio" name="mode" value="selective" checked><b>Только нужные сервисы</b><small>Остальное подключается напрямую</small></label>
+            <label><input type="radio" name="mode" value="ru-direct"><b>Россия — напрямую</b><small>Зарубежные сервисы — через прокси</small></label>
+          </div>
+          <label class="field"><span>Название профиля</span><input id="profileName" maxlength="80" value="Мой профиль INCY" autocomplete="off"></label>
+        </section>
+        <section class="card"><div class="section-head"><span>02</span><div><h2>Сервисы через прокси</h2><p>Нажмите на сервис — домены добавятся в правила прокси.</p></div></div><div id="services" class="services"></div><p class="hint">Наборы доменов — удобная стартовая точка. Проверьте их для своих задач: состав сервисов меняется.</p></section>
+        <section class="card"><div class="section-head"><span>03</span><div><h2>Свои правила</h2><p>По одной записи в строке: домен, IP или подсеть CIDR.</p></div></div>
+          <div class="rules-grid"><label class="field"><span>Домены через прокси</span><textarea id="proxyDomains" placeholder="example.com&#10;geosite:google"></textarea></label><label class="field"><span>Домены напрямую</span><textarea id="directDomains" placeholder="intranet.example&#10;geosite:ru"></textarea></label><label class="field"><span>IP через прокси</span><textarea id="proxyIPs" placeholder="203.0.113.10&#10;2001:db8::/32"></textarea></label><label class="field"><span>IP напрямую</span><textarea id="directIPs" placeholder="192.168.1.0/24"></textarea></label></div>
+          <details><summary>Исключения и блокировка</summary><div class="rules-grid detail-grid"><label class="field"><span>Заблокировать домены</span><textarea id="blockDomains" placeholder="geosite:category-ads-all"></textarea></label><label class="field"><span>Заблокировать IP / подсети</span><textarea id="blockIPs" placeholder=""></textarea></label></div></details>
+        </section>
+        <section class="card"><div class="section-head"><span>04</span><div><h2>DNS и списки</h2><p>Используются только документированные поля INCY.</p></div></div>
+          <div class="rules-grid"><label class="field"><span>Удалённый DNS</span><select id="remoteDNS"><option value="cloudflare">Cloudflare DoH · 1.1.1.1</option><option value="google">Google DoH · 8.8.8.8</option><option value="custom">Свой DoH</option></select></label><label class="field"><span>Локальный DNS</span><select id="domesticDNS"><option value="system">Системный / UDP 8.8.8.8</option><option value="cloudflare">Cloudflare DoH · 1.1.1.1</option><option value="google">Google DoH · 8.8.8.8</option></select></label></div>
+          <div id="customDNS" class="custom-dns hidden"><label class="field"><span>URL DoH</span><input id="customDNSUrl" placeholder="https://dns.example/dns-query" inputmode="url"></label><label class="field"><span>IP DNS</span><input id="customDNSIP" placeholder="1.2.3.4" inputmode="text"></label></div>
+          <div class="toggles"><label class="switch"><input id="fakeDNS" type="checkbox"><span></span><b>FakeDNS</b><small>Виртуальные IP для обработки доменов Xray</small></label><label class="switch"><input id="chunks" type="checkbox"><span></span><b>Обрезать геофайлы</b><small>Подходит только при небольшом числе геотегов</small></label></div>
+          <details><summary>Геофайлы и белые списки РКН</summary><div class="notice">INCY поддерживает URL geoip.dat и geosite.dat, но не задаёт отдельный «формат списка РКН». Указывайте только проверенный совместимый геофайл; теги в правилах должны быть в нём определены.</div><div class="rules-grid detail-grid"><label class="field"><span>URL geoip.dat</span><input id="geoipurl" inputmode="url" value="https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat"></label><label class="field"><span>URL geosite.dat / ваш список</span><input id="geositeurl" inputmode="url" value="https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"></label></div></details>
+        </section>
+      </form>
+      <aside class="output" aria-live="polite"><div class="output-top"><p class="eyebrow">ГОТОВЫЙ ПРОФИЛЬ</p><h2 id="summary">Только нужные сервисы</h2><span id="status" class="status">Проверка правил…</span></div><div id="warnings" class="warnings"></div><div class="tabs" role="tablist"><button class="active" data-tab="json">JSON</button><button data-tab="link">Импорт</button><button data-tab="auto">Автообновление</button></div><pre id="preview" tabindex="0"></pre><div class="actions"><button id="copy" class="primary" type="button">Скопировать</button><button id="download" class="secondary" type="button">Скачать .json</button></div><p class="tiny">Статический импорт добавляет профиль один раз. Автообновление работает только с уже размещённым HTTPS JSON.</p></aside>
+    </div>
+  </main>
+  <footer>Сгенерированный профиль не содержит ключей, серверов или учётных данных.</footer><script src="app.js"></script>
+</body></html>
