@@ -65,7 +65,8 @@
   function collect() {
     const currentMode = mode();
     const directDomains = lines('#directDomains','domain'); const directIPs = lines('#directIPs','ip');
-    const proxyDomains = [...new Set([...selectedDomains(), ...lines('#proxyDomains','domain')])]; const proxyIPs = lines('#proxyIPs','ip');
+    const serviceDomains = currentMode === 'global' ? [] : selectedDomains();
+    const proxyDomains = [...new Set([...serviceDomains, ...lines('#proxyDomains','domain')])]; const proxyIPs = lines('#proxyIPs','ip');
     if (currentMode === 'ru-direct') { directDomains.unshift('geosite:ru'); directIPs.unshift('geoip:ru'); }
     const remote = value('#remoteDNS'); const domestic = value('#domesticDNS');
     const dns = remote === 'google' ? ['https://dns.google/dns-query','8.8.8.8'] : remote === 'custom' ? [value('#customDNSUrl'),value('#customDNSIP')] : ['https://cloudflare-dns.com/dns-query','1.1.1.1'];
@@ -85,6 +86,14 @@
   function cleanName(v) { return v.replace(/[\x00-\x1f<>]/g,'').slice(0,80); }
   function update() {
     const profile = collect(); state.profile = profile;
+    const servicesDisabled = mode() === 'global';
+    services.classList.toggle('is-disabled', servicesDisabled);
+    services.querySelectorAll('[data-service]').forEach((input) => { input.disabled = servicesDisabled; });
+    services.querySelectorAll('.service').forEach((card) => {
+      card.setAttribute('aria-disabled', String(servicesDisabled));
+      card.style.opacity = servicesDisabled ? '.48' : '';
+      card.style.cursor = servicesDisabled ? 'not-allowed' : '';
+    });
     const data = {}; form.querySelectorAll('input,textarea,select').forEach(el => { if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : el.value; if (el.name === 'mode' && el.checked) data.mode = el.value; });
     data.selectedServices = [...document.querySelectorAll('[data-service]:checked')].map(x=>x.dataset.service); localStorage.setItem('incy-builder-v1', JSON.stringify(data));
     const labels = {global:'Весь трафик через прокси',selective:'Только нужные сервисы','ru-direct':'Россия напрямую'}; $('#summary').textContent = labels[mode()];
