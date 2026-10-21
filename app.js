@@ -97,10 +97,9 @@
   function update() {
     const profile = collect(); state.profile = profile;
     const currentMode = mode();
-    const servicesDisabled = currentMode !== 'direct';
-    services.classList.toggle('is-disabled', servicesDisabled);
-    services.querySelectorAll('[data-service]').forEach((chip) => { chip.disabled = servicesDisabled; chip.setAttribute('aria-disabled', String(servicesDisabled)); });
-    $('#clearServices').disabled = servicesDisabled;
+    services.classList.remove('is-disabled');
+    services.querySelectorAll('[data-service]').forEach((chip) => { chip.disabled = false; chip.setAttribute('aria-disabled', 'false'); });
+    $('#clearServices').disabled = false;
     paintServices();
     const data = {}; form.querySelectorAll('input,textarea,select').forEach(el => { if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : el.value; if (el.name === 'mode' && el.checked) data.mode = el.value; });
     data.serviceStates = state.serviceStates; localStorage.setItem('incy-builder-v1', JSON.stringify(data));
