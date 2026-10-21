@@ -5,6 +5,9 @@
   <meta name="description" content="Локальный конструктор профилей маршрутизации INCY">
   <title>INCY · Конструктор маршрутизации</title>
   <link rel="stylesheet" href="styles.css">
+  <style>
+    .preset-note{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 0 14px;color:var(--muted);font-size:12px}.quiet-button{border:1px solid var(--line);border-radius:8px;background:#fff;padding:7px 10px;color:var(--ink);font:700 11px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;cursor:pointer;white-space:nowrap}.quiet-button:disabled{opacity:.45;cursor:not-allowed}.service{appearance:none;background:#fff;text-align:left;justify-content:space-between}.service small{margin-left:auto;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.04em}.service[data-state="proxy"]{border-color:#8bb5f4;background:var(--soft);color:#0d55b5}.service[data-state="proxy"] small{color:#0d55b5}.service[data-state="direct"]{border-color:#76c6ac;background:#edfaf5;color:#126853}.service[data-state="direct"] small{color:#126853}.services.is-disabled .service{opacity:.48;cursor:not-allowed}@media(max-width:560px){.preset-note{align-items:flex-start;flex-direction:column}.quiet-button{width:100%}}
+  </style>
 </head>
 <body>
   <header class="top"><a class="brand" href="#top" aria-label="На главную"><span>i</span> INCY <small>КОНСТРУКТОР</small></a><div class="privacy">● Всё остаётся в браузере</div></header>
@@ -20,7 +23,7 @@
           </div>
           <label class="field"><span>Название профиля</span><input id="profileName" maxlength="80" value="Мой профиль INCY" autocomplete="off"></label>
         </section>
-        <section class="card"><div class="section-head"><span>02</span><div><h2>Сервисы через прокси</h2><p>Нажмите на сервис — домены добавятся в правила прокси.</p></div></div><div id="services" class="services"></div><p class="hint">Наборы доменов — удобная стартовая точка. Проверьте их для своих задач: состав сервисов меняется.</p></section>
+        <section class="card"><div class="section-head"><span>02</span><div><h2>Готовые наборы правил</h2><p>Каждое нажатие: выкл → через прокси → напрямую → выкл.</p></div></div><div class="preset-note"><span>Выбирайте сервисы как готовые группы доменов — без ручного JSON.</span><button id="clearServices" class="quiet-button" type="button">Сбросить выбор</button></div><div id="services" class="services"></div><p class="hint">В режиме «Весь трафик через прокси» наборы не применяются: у такого профиля нет отдельных правил сервисов.</p></section>
         <section class="card"><div class="section-head"><span>03</span><div><h2>Свои правила</h2><p>По одной записи в строке: домен, IP или подсеть CIDR.</p></div></div>
           <div class="rules-grid"><label class="field"><span>Домены через прокси</span><textarea id="proxyDomains" placeholder="example.com&#10;geosite:google"></textarea></label><label class="field"><span>Домены напрямую</span><textarea id="directDomains" placeholder="intranet.example&#10;geosite:ru"></textarea></label><label class="field"><span>IP через прокси</span><textarea id="proxyIPs" placeholder="203.0.113.10&#10;2001:db8::/32"></textarea></label><label class="field"><span>IP напрямую</span><textarea id="directIPs" placeholder="192.168.1.0/24"></textarea></label></div>
           <details><summary>Исключения и блокировка</summary><div class="rules-grid detail-grid"><label class="field"><span>Заблокировать домены</span><textarea id="blockDomains" placeholder="geosite:category-ads-all"></textarea></label><label class="field"><span>Заблокировать IP / подсети</span><textarea id="blockIPs" placeholder=""></textarea></label></div></details>
@@ -35,5 +38,5 @@
       <aside class="output" aria-live="polite"><div class="output-top"><p class="eyebrow">ГОТОВЫЙ ПРОФИЛЬ</p><h2 id="summary">Только нужные сервисы</h2><span id="status" class="status">Проверка правил…</span></div><div id="warnings" class="warnings"></div><div class="tabs" role="tablist"><button class="active" data-tab="json">JSON</button><button data-tab="link">Импорт</button><button data-tab="auto">Автообновление</button></div><pre id="preview" tabindex="0"></pre><div class="actions"><button id="copy" class="primary" type="button">Скопировать</button><button id="download" class="secondary" type="button">Скачать .json</button></div><p class="tiny">Статический импорт добавляет профиль один раз. Автообновление работает только с уже размещённым HTTPS JSON.</p></aside>
     </div>
   </main>
-  <footer>Сгенерированный профиль не содержит ключей, серверов или учётных данных.</footer><script src="app.js?v=e43d58b"></script>
+  <footer>Сгенерированный профиль не содержит ключей, серверов или учётных данных.</footer><script src="app.js?v=rocket-ui-1"></script>
 </body></html>
