@@ -108,7 +108,7 @@
     const labels = {direct:'Трафик напрямую',proxy:'Трафик через прокси',whitelist:'Трафик по белому списку'}; const hints = {direct:'Предустановка добавит популярные зарубежные сервисы в правила прокси. Наборы ниже можно изменить.',proxy:'Весь трафик идёт через прокси, кроме geosite:ru и geoip:ru. Наборы сервисов здесь не нужны.',whitelist:'Весь трафик идёт через прокси. Добавьте домены и IP, которые должны остаться напрямую.'}; $('#summary').textContent = labels[currentMode]; $('#modeHint').textContent = hints[currentMode];
     render();
   }
-  function applyModePreset(nextMode) { const foreign = ['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)']; state.serviceStates = nextMode === 'direct' ? Object.fromEntries(foreign.map(name => [name,'proxy'])) : {}; update(); }
+  function applyModePreset(nextMode) { const foreign = ['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)']; if (nextMode === 'direct' && !Object.keys(state.serviceStates).length) state.serviceStates = Object.fromEntries(foreign.map(name => [name,'proxy'])); update(); }
   function paintServices() { services.querySelectorAll('[data-service]').forEach((chip) => { const choice = state.serviceStates[chip.dataset.service] || 'off'; chip.dataset.state = choice; chip.querySelector('small').textContent = choice === 'proxy' ? 'через прокси' : choice === 'direct' ? 'напрямую' : 'выкл'; }); }
   function issues() {
     const warnings=[];
@@ -139,5 +139,6 @@
   async function copyCurrent(){ const text=currentText(); if(state.tab==='auto' && !httpsUrl(state.autoUrl)) { alert('Введите HTTPS-адрес уже размещённого JSON-файла.'); return;} try {await navigator.clipboard.writeText(text); $('#copy').textContent='Скопировано'; setTimeout(()=>$('#copy').textContent='Скопировать',1500);} catch {alert('Не удалось скопировать. Выделите текст в окне предпросмотра.');} }
   function downloadProfile(){const blob=new Blob([JSON.stringify(state.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.profile.Name.replace(/[^\wа-яё-]+/gi,'-').slice(0,50)||'incy-profile')+'.json';a.click();URL.revokeObjectURL(a.href);}
 })();
+
 
 
