@@ -148,7 +148,7 @@
       Name: cleanName(value('#profileName')) || 'Профиль INCY', GlobalProxy: String(currentMode !== 'direct'), LastUpdated: String(Math.floor(Date.now()/1000)),
       RemoteDNSType:'DoH', RemoteDNSDomain:dns[0], RemoteDNSIP:dns[1], DomesticDNSType:local[0], DomesticDNSDomain:local[1], DomesticDNSIP:local[2],
       DirectSites:[...new Set(directDomains)], DirectIp:[...new Set(directIPs)], ProxySites:proxyDomains, ProxyIp:proxyIPs,
-      BlockSites:lines('#blockDomains','domain'), BlockIp:lines('#blockIPs','ip'), DomainStrategy:'IPIfNonMatch', FakeDNS:String(bool('#fakeDNS'))
+      BlockSites:lines('#blockDomains','domain'), BlockIp:lines('#blockIPs','ip'), DomainStrategy:currentMode === 'whitelist' ? 'AsIs' : 'IPIfNonMatch', FakeDNS:String(bool('#fakeDNS'))
     };
     const geoip = value('#geoipurl'), geosite = value('#geositeurl');
     if (httpsUrl(geoip)) profile.Geoipurl = geoip;
