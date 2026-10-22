@@ -19,8 +19,9 @@
     'Госуслуги':['gosuslugi.ru','esia.gosuslugi.ru']
   };
   const serviceIpSets = { 'Россия: IP':['geoip:ru'] };
-  const state = { tab:'json', autoUrl:'', serviceStates:{} };
-  const saved = safeParse(localStorage.getItem('incy-builder-v1'));
+  const state = { tab:'json', autoUrl:'', serviceStates:{}, preset:'' };
+  const shared = readSharedState();
+  const saved = shared || safeParse(localStorage.getItem('incy-builder-v1'));
   const form = $('#builder');
   const services = $('#services');
   [...new Set([...Object.keys(serviceSets), ...Object.keys(serviceIpSets)])].forEach((name) => {
@@ -28,7 +29,7 @@
     services.insertAdjacentHTML('beforeend', `<button id="${id}" class="service" type="button" data-service="${name}" data-state="off"><span>${name}</span><small>выкл</small></button>`);
   });
   restore(saved);
-  if (!saved || !saved.mode) state.serviceStates = Object.fromEntries(['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)'].map(name => [name,'proxy']));
+  if (!saved || !saved.mode) applyModePreset('direct', false);
 
   form.addEventListener('input', update);
   form.addEventListener('change', (event) => { if (event.target.name === 'mode') applyModePreset(event.target.value); else update(); });
@@ -37,14 +38,25 @@
     requestAnimationFrame(() => { if (mode() === nextMode) applyModePreset(nextMode); });
   }));
   services.addEventListener('click', (event) => { const chip = event.target.closest('[data-service]'); if (chip && !chip.disabled) cycleService(chip.dataset.service); });
-  $('#clearServices').addEventListener('click', () => { state.serviceStates = {}; update(); });
+  $('#clearServices').addEventListener('click', () => { state.serviceStates = {}; state.preset = 'custom'; update(); });
   $('#remoteDNS').addEventListener('change', () => { $('#customDNS').classList.toggle('hidden', $('#remoteDNS').value !== 'custom'); });
   document.querySelectorAll('.tabs button').forEach((button) => button.addEventListener('click', () => { state.tab = button.dataset.tab; document.querySelector('.tabs .active').classList.remove('active'); button.classList.add('active'); render(); }));
   $('#copy').addEventListener('click', copyCurrent);
   $('#download').addEventListener('click', downloadProfile);
+  const shareButton = $('#share'); if (shareButton) shareButton.addEventListener('click', copyShareLink);
   update();
 
   function safeParse(text) { try { return JSON.parse(text || '{}'); } catch { return {}; } }
+  function decodeBase64Utf8(value) { try { return decodeURIComponent(Array.from(atob(value), c => '%' + c.charCodeAt(0).toString(16).padStart(2,'0')).join('')); } catch { return ''; } }
+  function readSharedState() {
+    const raw = new URLSearchParams(location.search).get('s');
+    if (!raw || raw.length > 12000) return null;
+    const data = safeParse(decodeBase64Utf8(raw));
+    if (!data || typeof data !== 'object' || !['direct','proxy','whitelist'].includes(data.mode)) return null;
+    const allowed = new Set([...Object.keys(serviceSets), ...Object.keys(serviceIpSets)]);
+    data.serviceStates = Object.fromEntries(Object.entries(data.serviceStates || {}).filter(([name, choice]) => allowed.has(name) && ['proxy','direct'].includes(choice)));
+    return data;
+  }
   function restore(data) {
     if (!data || typeof data !== 'object') return;
     if (data.mode === 'selective') data.mode = 'direct';
@@ -58,6 +70,7 @@
       else el.value = String(value);
     });
     state.serviceStates = data.serviceStates && typeof data.serviceStates === 'object' ? data.serviceStates : {};
+    state.preset = ['direct','proxy','whitelist','custom'].includes(data.preset) ? data.preset : '';
     (data.selectedServices || []).forEach(name => { if (!state.serviceStates[name]) state.serviceStates[name] = 'proxy'; });
     $('#customDNS').classList.toggle('hidden', $('#remoteDNS').value !== 'custom');
   }
@@ -76,7 +89,7 @@
   function httpsUrl(v) { try { const u = new URL(v); return u.protocol === 'https:' && u.hostname.length < 254; } catch { return false; } }
   function selectedDomains(kind) { return Object.entries(state.serviceStates).filter(([, choice]) => choice === kind).flatMap(([name]) => serviceSets[name] || []); }
   function selectedIPs(kind) { return Object.entries(state.serviceStates).filter(([, choice]) => choice === kind).flatMap(([name]) => serviceIpSets[name] || []); }
-  function cycleService(name) { const order = ['off','proxy','direct']; const current = state.serviceStates[name] || 'off'; const next = order[(order.indexOf(current) + 1) % order.length]; if (next === 'off') delete state.serviceStates[name]; else state.serviceStates[name] = next; update(); }
+  function cycleService(name) { const order = ['off','proxy','direct']; const current = state.serviceStates[name] || 'off'; const next = order[(order.indexOf(current) + 1) % order.length]; if (next === 'off') delete state.serviceStates[name]; else state.serviceStates[name] = next; state.preset = 'custom'; update(); }
   function mode() { return document.querySelector('[name="mode"]:checked').value; }
   function collect() {
     const currentMode = mode();
@@ -110,12 +123,14 @@
     $('#clearServices').disabled = false;
     paintServices();
     const data = {}; form.querySelectorAll('input,textarea,select').forEach(el => { if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : el.value; if (el.name === 'mode' && el.checked) data.mode = el.value; });
-    data.serviceStates = state.serviceStates; localStorage.setItem('incy-builder-v1', JSON.stringify(data));
+    data.serviceStates = state.serviceStates; data.preset = state.preset; localStorage.setItem('incy-builder-v1', JSON.stringify(data));
     $('#whitelistBox').classList.toggle('hidden', currentMode !== 'whitelist');
-    const labels = {direct:'Трафик напрямую',proxy:'Трафик через прокси',whitelist:'Трафик по белому списку'}; const hints = {direct:'Предустановка добавит популярные зарубежные сервисы в правила прокси. Наборы ниже можно изменить.',proxy:'Весь трафик идёт через прокси, кроме geosite:ru и geoip:ru. Наборы сервисов здесь не нужны.',whitelist:'Весь трафик идёт через прокси. Добавьте домены и IP, которые должны остаться напрямую.'}; $('#summary').textContent = labels[currentMode]; $('#modeHint').textContent = hints[currentMode];
+    const labels = {direct:'Трафик напрямую',proxy:'Трафик через прокси',whitelist:'Трафик по белому списку'}; const hints = {direct:'Режим применяет набор зарубежных сервисов для прокси. Нажмите карточку ещё раз, чтобы восстановить его.',proxy:'Режим очищает наборы сервисов: весь трафик идёт через прокси, кроме geosite:ru и geoip:ru.',whitelist:'Режим добавляет Россию в прямой трафик. Нажмите карточку ещё раз, чтобы восстановить набор.'}; $('#summary').textContent = labels[currentMode]; $('#modeHint').textContent = hints[currentMode];
+    const presetText = state.preset === 'custom' ? 'Индивидуальная настройка: наборы изменены вручную.' : 'Активна предустановка: ' + labels[state.preset || currentMode] + '.';
+    $('#presetStatus').textContent = presetText;
     render();
   }
-  function applyModePreset(nextMode) { const foreign = ['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)']; const presets = {direct:Object.fromEntries(foreign.map(name => [name,'proxy'])),proxy:{},whitelist:{'Россия: домены':'direct','Россия: IP':'direct'}}; state.serviceStates = presets[nextMode] || {}; update(); }
+  function applyModePreset(nextMode, shouldUpdate = true) { const foreign = ['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)']; const presets = {direct:Object.fromEntries(foreign.map(name => [name,'proxy'])),proxy:{},whitelist:{'Россия: домены':'direct','Россия: IP':'direct'}}; state.serviceStates = presets[nextMode] || {}; state.preset = nextMode; if (shouldUpdate) update(); }
   function paintServices() { services.querySelectorAll('[data-service]').forEach((chip) => { const choice = state.serviceStates[chip.dataset.service] || 'off'; chip.dataset.state = choice; chip.querySelector('small').textContent = choice === 'proxy' ? 'через прокси' : choice === 'direct' ? 'напрямую' : 'выкл'; }); }
   function issues() {
     const warnings=[];
@@ -144,5 +159,7 @@
   }
   function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));} function escapeAttr(s){return escapeHtml(s).replace(/"/g,'&quot;');}
   async function copyCurrent(){ const text=currentText(); if(state.tab==='auto' && !httpsUrl(state.autoUrl)) { alert('Введите HTTPS-адрес уже размещённого JSON-файла.'); return;} try {await navigator.clipboard.writeText(text); $('#copy').textContent='Скопировано'; setTimeout(()=>$('#copy').textContent='Скопировать',1500);} catch {alert('Не удалось скопировать. Выделите текст в окне предпросмотра.');} }
+  function shareData() { const data = {}; form.querySelectorAll('input,textarea,select').forEach(el => { if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : String(el.value).slice(0,2000); if (el.name === 'mode' && el.checked) data.mode = el.value; }); data.serviceStates = state.serviceStates; data.preset = state.preset; return data; }
+  async function copyShareLink() { const payload = base64Utf8(JSON.stringify(shareData())); const url = new URL(location.href); url.search = payload.length <= 12000 ? 's=' + encodeURIComponent(payload) : ''; if (!url.search) { alert('Настройка слишком велика для ссылки. Скачайте JSON-файл.'); return; } try { await navigator.clipboard.writeText(url.href); if ($('#share')) { $('#share').textContent='Ссылка скопирована'; setTimeout(()=>$('#share').textContent='Скопировать настройку',1800); } } catch { alert('Не удалось скопировать ссылку.'); } }
   function downloadProfile(){const blob=new Blob([JSON.stringify(state.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.profile.Name.replace(/[^\wа-яё-]+/gi,'-').slice(0,50)||'incy-profile')+'.json';a.click();URL.revokeObjectURL(a.href);}
 })()
