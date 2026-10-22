@@ -143,7 +143,7 @@
     if (currentMode === 'proxy') { directDomains.unshift('geosite:ru'); directIPs.unshift('geoip:ru'); }
     const remote = value('#remoteDNS'); const domestic = value('#domesticDNS');
     const dns = remote === 'google' ? ['https://dns.google/dns-query','8.8.8.8'] : remote === 'custom' ? [value('#customDNSUrl'),value('#customDNSIP')] : ['https://cloudflare-dns.com/dns-query','1.1.1.1'];
-    const local = domestic === 'cloudflare' ? ['DoH','https://cloudflare-dns.com/dns-query','1.1.1.1'] : domestic === 'google' ? ['DoH','https://dns.google/dns-query','8.8.8.8'] : ['DoU','','8.8.8.8'];
+    const local = domestic === 'yandex' ? ['DoH','https://common.dot.dns.yandex.net/dns-query','77.88.8.8'] : domestic === 'cloudflare' ? ['DoH','https://cloudflare-dns.com/dns-query','1.1.1.1'] : domestic === 'google' ? ['DoH','https://dns.google/dns-query','8.8.8.8'] : ['DoU','','8.8.8.8'];
     const profile = {
       Name: cleanName(value('#profileName')) || 'Профиль INCY', GlobalProxy: String(currentMode !== 'direct'), LastUpdated: String(Math.floor(Date.now()/1000)),
       RemoteDNSType:'DoH', RemoteDNSDomain:dns[0], RemoteDNSIP:dns[1], DomesticDNSType:local[0], DomesticDNSDomain:local[1], DomesticDNSIP:local[2],
@@ -174,7 +174,7 @@
     $('#presetStatus').textContent = presetText;
     render();
   }
-  function applyModePreset(nextMode, shouldUpdate = true) { const foreign = ['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)']; const presets = {direct:Object.fromEntries(foreign.map(name => [name,'proxy'])),proxy:{},whitelist:{}}; state.serviceStates = presets[nextMode] || {}; state.preset = nextMode; if (shouldUpdate) update(); }
+  function applyModePreset(nextMode, shouldUpdate = true) { const foreign = ['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)']; const presets = {direct:Object.fromEntries(foreign.map(name => [name,'proxy'])),proxy:{},whitelist:{}}; state.serviceStates = presets[nextMode] || {}; if (nextMode === 'whitelist') $('#domesticDNS').value = 'yandex'; state.preset = nextMode; if (shouldUpdate) update(); }
   function paintServices() { services.querySelectorAll('[data-service]').forEach((chip) => { const choice = state.serviceStates[chip.dataset.service] || 'off'; chip.dataset.state = choice; chip.querySelector('small').textContent = choice === 'proxy' ? 'через прокси' : choice === 'direct' ? 'напрямую' : 'выкл'; }); }
   function issues() {
     const warnings=[];
