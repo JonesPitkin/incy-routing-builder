@@ -19,6 +19,8 @@
     'Госуслуги':['gosuslugi.ru','esia.gosuslugi.ru']
   };
   const serviceIpSets = { 'Россия: IP':['geoip:ru'] };
+  const RKN_PROFILE_URL = 'https://raw.githubusercontent.com/JonesPitkin/nidox-incy-routing/main/dist/ru-direct-profile.json';
+  const RKN_CACHE_KEY = 'incy-rkn-whitelist-v1';
   const state = { tab:'json', autoUrl:'', serviceStates:{}, preset:'' };
   const shared = readSharedState();
   const saved = shared || safeParse(localStorage.getItem('incy-builder-v1'));
@@ -43,10 +45,29 @@
   document.querySelectorAll('.tabs button').forEach((button) => button.addEventListener('click', () => { state.tab = button.dataset.tab; document.querySelector('.tabs .active').classList.remove('active'); button.classList.add('active'); render(); }));
   $('#copy').addEventListener('click', copyCurrent);
   $('#download').addEventListener('click', downloadProfile);
-  const shareButton = $('#share'); if (shareButton) shareButton.addEventListener('click', copyShareLink);
+  $('#share').addEventListener('click', copyShareLink);
+  $('#refreshRkn').addEventListener('click', () => loadRknWhitelist(true));
+  restoreRknCache();
+  loadRknWhitelist();
   update();
 
   function safeParse(text) { try { return JSON.parse(text || '{}'); } catch { return {}; } }
+  function restoreRknCache() { const data = safeParse(localStorage.getItem(RKN_CACHE_KEY)); if (data && Array.isArray(data.domains) && Array.isArray(data.ips)) state.rkn = {domains:data.domains.filter(x=>validate(x,'domain')),ips:data.ips.filter(x=>validate(x,'ip')),updated:String(data.updated || ''),status:'cached'}; else state.rkn = {domains:[],ips:[],updated:'',status:'loading'}; }
+  async function loadRknWhitelist(force = false) {
+    if (!force && state.rkn.status === 'loading') return;
+    state.rkn.status = 'loading'; update();
+    try {
+      const response = await fetch(RKN_PROFILE_URL, {cache: force ? 'reload' : 'default'});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const profile = await response.json();
+      const domains = [...new Set((Array.isArray(profile.DirectSites) ? profile.DirectSites : []).filter(x => typeof x === 'string' && validate(x,'domain')))];
+      const ips = [...new Set((Array.isArray(profile.DirectIp) ? profile.DirectIp : []).filter(x => typeof x === 'string' && validate(x,'ip')))];
+      if (!domains.length && !ips.length) throw new Error('empty list');
+      state.rkn = {domains,ips,updated:String(profile.LastUpdated || ''),status:'ready'};
+      localStorage.setItem(RKN_CACHE_KEY, JSON.stringify(state.rkn));
+    } catch { state.rkn.status = state.rkn.domains.length || state.rkn.ips.length ? 'cached' : 'error'; }
+    update();
+  }
   function decodeBase64Utf8(value) { try { return decodeURIComponent(Array.from(atob(value), c => '%' + c.charCodeAt(0).toString(16).padStart(2,'0')).join('')); } catch { return ''; } }
   function readSharedState() {
     const raw = new URLSearchParams(location.search).get('s');
@@ -94,8 +115,9 @@
   function collect() {
     const currentMode = mode();
     const whitelistDomains = currentMode === 'whitelist' ? lines('#whitelistDomains','domain') : []; const whitelistIPs = currentMode === 'whitelist' ? lines('#whitelistIPs','ip') : [];
+    const rknDomains = currentMode === 'whitelist' ? state.rkn.domains : []; const rknIPs = currentMode === 'whitelist' ? state.rkn.ips : [];
     const chipDirectDomains = currentMode === 'direct' || currentMode === 'whitelist' ? selectedDomains('direct') : []; const chipDirectIPs = currentMode === 'direct' || currentMode === 'whitelist' ? selectedIPs('direct') : [];
-    const directDomains = [...chipDirectDomains, ...whitelistDomains, ...lines('#directDomains','domain')]; const directIPs = [...chipDirectIPs, ...whitelistIPs, ...lines('#directIPs','ip')];
+    const directDomains = [...rknDomains, ...chipDirectDomains, ...whitelistDomains, ...lines('#directDomains','domain')]; const directIPs = [...rknIPs, ...chipDirectIPs, ...whitelistIPs, ...lines('#directIPs','ip')];
     const serviceDomains = currentMode === 'direct' ? selectedDomains('proxy') : [];
     const proxyDomains = [...new Set([...serviceDomains, ...lines('#proxyDomains','domain')])]; const proxyIPs = lines('#proxyIPs','ip');
     if (currentMode === 'proxy') { directDomains.unshift('geosite:ru'); directIPs.unshift('geoip:ru'); }
@@ -125,18 +147,21 @@
     const data = {}; form.querySelectorAll('input,textarea,select').forEach(el => { if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : el.value; if (el.name === 'mode' && el.checked) data.mode = el.value; });
     data.serviceStates = state.serviceStates; data.preset = state.preset; localStorage.setItem('incy-builder-v1', JSON.stringify(data));
     $('#whitelistBox').classList.toggle('hidden', currentMode !== 'whitelist');
-    const labels = {direct:'Трафик напрямую',proxy:'Трафик через прокси',whitelist:'Трафик по белому списку'}; const hints = {direct:'Режим применяет набор зарубежных сервисов для прокси. Нажмите карточку ещё раз, чтобы восстановить его.',proxy:'Режим очищает наборы сервисов: весь трафик идёт через прокси, кроме geosite:ru и geoip:ru.',whitelist:'Режим добавляет Россию в прямой трафик. Нажмите карточку ещё раз, чтобы восстановить набор.'}; $('#summary').textContent = labels[currentMode]; $('#modeHint').textContent = hints[currentMode];
-    const presetText = state.preset === 'custom' ? 'Индивидуальная настройка: наборы изменены вручную.' : 'Активна предустановка: ' + labels[state.preset || currentMode] + '.';
+    const labels = {direct:'Трафик напрямую',proxy:'Трафик через прокси',whitelist:'Трафик по белому списку'}; const hints = {direct:'Режим применяет набор зарубежных сервисов для прокси. Нажмите карточку ещё раз, чтобы восстановить его.',proxy:'Режим очищает наборы сервисов: весь трафик идёт через прокси, кроме geosite:ru и geoip:ru.',whitelist:'Только адреса из списка NIDOX идут напрямую; весь прочий трафик — через прокси. Ручные записи ниже расширяют белый список.'}; $('#summary').textContent = labels[currentMode]; $('#modeHint').textContent = hints[currentMode];
+    const rknStatus = state.rkn.status === 'ready' ? `Загружено: ${state.rkn.domains.length} доменов и ${state.rkn.ips.length} IP/CIDR.` : state.rkn.status === 'cached' ? `Используется сохранённая копия: ${state.rkn.domains.length} доменов и ${state.rkn.ips.length} IP/CIDR.` : state.rkn.status === 'error' ? 'Список пока недоступен — прямые правила из него не добавлены.' : 'Загружаем актуальный список…';
+    $('#rknStatus').textContent = rknStatus; $('#refreshRkn').disabled = state.rkn.status === 'loading';
+    const presetText = state.preset === 'custom' ? 'Индивидуальная настройка: наборы изменены вручную.' : `Активна предустановка: ${labels[state.preset || currentMode]}.`;
     $('#presetStatus').textContent = presetText;
     render();
   }
-  function applyModePreset(nextMode, shouldUpdate = true) { const foreign = ['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)']; const presets = {direct:Object.fromEntries(foreign.map(name => [name,'proxy'])),proxy:{},whitelist:{'Россия: домены':'direct','Россия: IP':'direct'}}; state.serviceStates = presets[nextMode] || {}; state.preset = nextMode; if (shouldUpdate) update(); }
+  function applyModePreset(nextMode, shouldUpdate = true) { const foreign = ['YouTube','Telegram','WhatsApp','ChatGPT','Discord','Instagram','TikTok','Meta / Facebook','X (Twitter)']; const presets = {direct:Object.fromEntries(foreign.map(name => [name,'proxy'])),proxy:{},whitelist:{}}; state.serviceStates = presets[nextMode] || {}; state.preset = nextMode; if (shouldUpdate) update(); }
   function paintServices() { services.querySelectorAll('[data-service]').forEach((chip) => { const choice = state.serviceStates[chip.dataset.service] || 'off'; chip.dataset.state = choice; chip.querySelector('small').textContent = choice === 'proxy' ? 'через прокси' : choice === 'direct' ? 'напрямую' : 'выкл'; }); }
   function issues() {
     const warnings=[];
     ['#proxyDomains','#directDomains','#whitelistDomains','#blockDomains'].forEach(id => { const raw=value(id).split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean); if(raw.some(x=>!validate(x,'domain'))) warnings.push('Часть доменов исключена: допускаются домены и geosite:теги без пробелов.'); });
     ['#proxyIPs','#directIPs','#whitelistIPs','#blockIPs'].forEach(id => { const raw=value(id).split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean); if(raw.some(x=>!validate(x,'ip'))) warnings.push('Часть IP-правил исключена: используйте IP, CIDR или geoip:тег.'); });
     if (value('#remoteDNS') === 'custom' && (!httpsUrl(value('#customDNSUrl')) || !validate(value('#customDNSIP'),'ip'))) warnings.push('Свой удалённый DNS не включён: нужен HTTPS URL DoH и IP.');
+    if (mode() === 'whitelist' && state.rkn.status === 'error') warnings.push('Список NIDOX недоступен: проверьте подключение и обновите список перед экспортом.');
     if (value('#geoipurl') && !httpsUrl(value('#geoipurl'))) warnings.push('URL geoip.dat пропущен: разрешены только HTTPS-адреса.');
     if (value('#geositeurl') && !httpsUrl(value('#geositeurl'))) warnings.push('URL geosite.dat пропущен: разрешены только HTTPS-адреса.');
     return [...new Set(warnings)];
@@ -160,6 +185,6 @@
   function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));} function escapeAttr(s){return escapeHtml(s).replace(/"/g,'&quot;');}
   async function copyCurrent(){ const text=currentText(); if(state.tab==='auto' && !httpsUrl(state.autoUrl)) { alert('Введите HTTPS-адрес уже размещённого JSON-файла.'); return;} try {await navigator.clipboard.writeText(text); $('#copy').textContent='Скопировано'; setTimeout(()=>$('#copy').textContent='Скопировать',1500);} catch {alert('Не удалось скопировать. Выделите текст в окне предпросмотра.');} }
   function shareData() { const data = {}; form.querySelectorAll('input,textarea,select').forEach(el => { if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : String(el.value).slice(0,2000); if (el.name === 'mode' && el.checked) data.mode = el.value; }); data.serviceStates = state.serviceStates; data.preset = state.preset; return data; }
-  async function copyShareLink() { const payload = base64Utf8(JSON.stringify(shareData())); const url = new URL(location.href); url.search = payload.length <= 12000 ? 's=' + encodeURIComponent(payload) : ''; if (!url.search) { alert('Настройка слишком велика для ссылки. Скачайте JSON-файл.'); return; } try { await navigator.clipboard.writeText(url.href); if ($('#share')) { $('#share').textContent='Ссылка скопирована'; setTimeout(()=>$('#share').textContent='Скопировать настройку',1800); } } catch { alert('Не удалось скопировать ссылку.'); } }
+  async function copyShareLink() { const payload = base64Utf8(JSON.stringify(shareData())); const url = new URL(location.href); url.search = payload.length <= 12000 ? `s=${encodeURIComponent(payload)}` : ''; if (!url.search) { alert('Настройка слишком велика для ссылки. Скачайте JSON-файл.'); return; } try { await navigator.clipboard.writeText(url.href); $('#share').textContent='Ссылка скопирована'; setTimeout(()=>$('#share').textContent='Скопировать настройку',1800); } catch { alert('Не удалось скопировать ссылку.'); } }
   function downloadProfile(){const blob=new Blob([JSON.stringify(state.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.profile.Name.replace(/[^\wа-яё-]+/gi,'-').slice(0,50)||'incy-profile')+'.json';a.click();URL.revokeObjectURL(a.href);}
-})()
+})();
