@@ -21,6 +21,7 @@
   const serviceIpSets = { 'Россия: IP':['geoip:ru'] };
   // Same-origin copy: works even when external CDNs are blocked by Safari or a content blocker.
   const RKN_PROFILE_URL = './rkn-whitelist.json';
+  const RKN_AUTO_IMPORT_URL = 'incy://autorouting/onadd/https://jonespitkin.github.io/incy-routing-builder/rkn-whitelist.json';
   const RKN_CACHE_KEY = 'incy-rkn-whitelist-v1';
   const EMBEDDED_RKN_LIST = window.INCY_RKN_WHITELIST || null;
   const state = { tab:'json', autoUrl:'', serviceStates:{}, preset:'' };
@@ -54,6 +55,7 @@
   $('#copy').addEventListener('click', copyCurrent);
   $('#download').addEventListener('click', downloadProfile);
   $('#share').addEventListener('click', copyShareLink);
+  $('#copyWhitelistAuto').addEventListener('click', copyWhitelistAuto);
   $('#refreshRkn').addEventListener('click', () => loadRknWhitelist(true));
   themeToggle.addEventListener('click', () => { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('incy-theme', document.documentElement.dataset.theme); paintThemeToggle(); });
   restoreRknCache();
@@ -204,6 +206,7 @@
   }
   function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));} function escapeAttr(s){return escapeHtml(s).replace(/"/g,'&quot;');}
   async function copyCurrent(){ const text=currentText(); if(state.tab==='auto' && !httpsUrl(state.autoUrl)) { alert('Введите HTTPS-адрес уже размещённого JSON-файла.'); return;} try {await navigator.clipboard.writeText(text); $('#copy').textContent='Скопировано'; setTimeout(()=>$('#copy').textContent='Скопировать',1500);} catch {alert('Не удалось скопировать. Выделите текст в окне предпросмотра.');} }
+  async function copyWhitelistAuto(){ try { await navigator.clipboard.writeText(RKN_AUTO_IMPORT_URL); const button=$('#copyWhitelistAuto'); button.textContent='Ссылка скопирована'; setTimeout(()=>button.textContent='Скопировать ссылку',1500); } catch { alert('Не удалось скопировать ссылку. Откройте кнопку «Добавить в INCY».'); } }
   function shareData() { const data = {}; form.querySelectorAll('input,textarea,select').forEach(el => { if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : String(el.value).slice(0,2000); if (el.name === 'mode' && el.checked) data.mode = el.value; }); data.serviceStates = state.serviceStates; data.preset = state.preset; return data; }
   async function copyShareLink() { const payload = base64Utf8(JSON.stringify(shareData())); const url = new URL(location.href); url.search = payload.length <= 12000 ? `s=${encodeURIComponent(payload)}` : ''; if (!url.search) { alert('Настройка слишком велика для ссылки. Скачайте JSON-файл.'); return; } try { await navigator.clipboard.writeText(url.href); $('#share').textContent='Ссылка скопирована'; setTimeout(()=>$('#share').textContent='Скопировать настройку',1800); } catch { alert('Не удалось скопировать ссылку.'); } }
   function downloadProfile(){const blob=new Blob([JSON.stringify(state.profile,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.profile.Name.replace(/[^\wа-яё-]+/gi,'-').slice(0,50)||'incy-profile')+'.json';a.click();URL.revokeObjectURL(a.href);}
