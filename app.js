@@ -56,8 +56,10 @@
   async function loadRknWhitelist(force = false) {
     if (!force && state.rkn.status === 'loading') return;
     state.rkn.status = 'loading'; update();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
     try {
-      const response = await fetch(RKN_PROFILE_URL, {cache: force ? 'reload' : 'default'});
+      const response = await fetch(RKN_PROFILE_URL, {cache: force ? 'reload' : 'default', signal: controller.signal});
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const profile = await response.json();
       const domains = [...new Set((Array.isArray(profile.DirectSites) ? profile.DirectSites : []).filter(x => typeof x === 'string' && validate(x,'domain')))];
@@ -66,6 +68,7 @@
       state.rkn = {domains,ips,updated:String(profile.LastUpdated || ''),status:'ready'};
       localStorage.setItem(RKN_CACHE_KEY, JSON.stringify(state.rkn));
     } catch { state.rkn.status = state.rkn.domains.length || state.rkn.ips.length ? 'cached' : 'error'; }
+    finally { clearTimeout(timeout); }
     update();
   }
   function decodeBase64Utf8(value) { try { return decodeURIComponent(Array.from(atob(value), c => '%' + c.charCodeAt(0).toString(16).padStart(2,'0')).join('')); } catch { return ''; } }
