@@ -22,6 +22,7 @@
   // Same-origin copy: works even when external CDNs are blocked by Safari or a content blocker.
   const RKN_PROFILE_URL = './rkn-whitelist.json';
   const RKN_CACHE_KEY = 'incy-rkn-whitelist-v1';
+  const EMBEDDED_RKN_LIST = window.INCY_RKN_WHITELIST || null;
   const state = { tab:'json', autoUrl:'', serviceStates:{}, preset:'' };
   const shared = readSharedState();
   const saved = shared || safeParse(localStorage.getItem('incy-builder-v1'));
@@ -53,9 +54,15 @@
   update();
 
   function safeParse(text) { try { return JSON.parse(text || '{}'); } catch { return {}; } }
-  function restoreRknCache() { const data = safeParse(localStorage.getItem(RKN_CACHE_KEY)); if (data && Array.isArray(data.domains) && Array.isArray(data.ips)) state.rkn = {domains:data.domains.filter(x=>validate(x,'domain')),ips:data.ips.filter(x=>validate(x,'ip')),updated:String(data.updated || ''),status:'cached'}; else state.rkn = {domains:[],ips:[],updated:'',status:'loading'}; }
+  function restoreRknCache() {
+    const data = safeParse(localStorage.getItem(RKN_CACHE_KEY));
+    if (data && Array.isArray(data.domains) && Array.isArray(data.ips)) { state.rkn = {domains:data.domains.filter(x=>validate(x,'domain')),ips:data.ips.filter(x=>validate(x,'ip')),updated:String(data.updated || ''),status:'cached'}; return; }
+    const domains = Array.isArray(EMBEDDED_RKN_LIST?.DirectSites) ? EMBEDDED_RKN_LIST.DirectSites.filter(x=>typeof x==='string'&&validate(x,'domain')) : [];
+    const ips = Array.isArray(EMBEDDED_RKN_LIST?.DirectIp) ? EMBEDDED_RKN_LIST.DirectIp.filter(x=>typeof x==='string'&&validate(x,'ip')) : [];
+    state.rkn = domains.length || ips.length ? {domains:[...new Set(domains)],ips:[...new Set(ips)],updated:String(EMBEDDED_RKN_LIST.LastUpdated || ''),status:'ready'} : {domains:[],ips:[],updated:'',status:'loading'};
+  }
   async function loadRknWhitelist(force = false) {
-    if (!force && state.rkn.status === 'loading') return;
+    if (!force && state.rkn.status !== 'loading') return;
     state.rkn.status = 'loading'; update();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
