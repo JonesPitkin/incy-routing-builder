@@ -33,6 +33,10 @@
     services.insertAdjacentHTML('beforeend', `<button id="${id}" class="service" type="button" data-service="${name}" data-state="off"><span>${name}</span><small>выкл</small></button>`);
   });
   restore(saved);
+  ['#geoipurl','#geositeurl'].forEach((id) => {
+    const field = $(id);
+    if (field.value.includes('github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/')) field.value = '';
+  });
   if (!saved || !saved.mode) applyModePreset('direct', false);
 
   form.addEventListener('input', update);
