@@ -19,8 +19,8 @@
     'Госуслуги':['gosuslugi.ru','esia.gosuslugi.ru']
   };
   const serviceIpSets = { 'Россия: IP':['geoip:ru'] };
-  // jsDelivr returns CORS headers, unlike raw.githubusercontent.com in some browsers.
-  const RKN_PROFILE_URL = 'https://cdn.jsdelivr.net/gh/JonesPitkin/nidox-incy-routing@main/dist/ru-direct-profile.json';
+  // Same-origin copy: works even when external CDNs are blocked by Safari or a content blocker.
+  const RKN_PROFILE_URL = './rkn-whitelist.json';
   const RKN_CACHE_KEY = 'incy-rkn-whitelist-v1';
   const state = { tab:'json', autoUrl:'', serviceStates:{}, preset:'' };
   const shared = readSharedState();
