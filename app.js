@@ -28,6 +28,8 @@
   const saved = shared || safeParse(localStorage.getItem('incy-builder-v1'));
   const form = $('#builder');
   const services = $('#services');
+  const themeToggle = $('#themeToggle');
+  document.documentElement.dataset.theme = localStorage.getItem('incy-theme') === 'dark' ? 'dark' : 'light';
   [...new Set([...Object.keys(serviceSets), ...Object.keys(serviceIpSets)])].forEach((name) => {
     const id = `service-${name}`;
     services.insertAdjacentHTML('beforeend', `<button id="${id}" class="service" type="button" data-service="${name}" data-state="off"><span>${name}</span><small>выкл</small></button>`);
@@ -53,11 +55,14 @@
   $('#download').addEventListener('click', downloadProfile);
   $('#share').addEventListener('click', copyShareLink);
   $('#refreshRkn').addEventListener('click', () => loadRknWhitelist(true));
+  themeToggle.addEventListener('click', () => { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('incy-theme', document.documentElement.dataset.theme); paintThemeToggle(); });
   restoreRknCache();
   loadRknWhitelist();
+  paintThemeToggle();
   update();
 
   function safeParse(text) { try { return JSON.parse(text || '{}'); } catch { return {}; } }
+  function paintThemeToggle() { const dark = document.documentElement.dataset.theme === 'dark'; themeToggle.textContent = dark ? '☀️ Дневной режим' : '🌙 Ночной режим'; themeToggle.setAttribute('aria-pressed', String(dark)); }
   function restoreRknCache() {
     const data = safeParse(localStorage.getItem(RKN_CACHE_KEY));
     if (data && Array.isArray(data.domains) && Array.isArray(data.ips)) { state.rkn = {domains:data.domains.filter(x=>validate(x,'domain')),ips:data.ips.filter(x=>validate(x,'ip')),updated:String(data.updated || ''),status:'cached'}; return; }
