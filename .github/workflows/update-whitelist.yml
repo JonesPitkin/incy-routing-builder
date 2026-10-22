@@ -1,0 +1,36 @@
+name: Обновить белый список INCY
+
+on:
+  schedule:
+    - cron: '17 03 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Скачать актуальный RU Lite
+        run: |
+          set -euo pipefail
+          source_url='https://github.com/kyoresuas/ru-direct/releases/latest/download/ru-lite.domains.txt'
+          curl --fail --location --retry 3 --connect-timeout 20 "$source_url" -o /tmp/ru-lite.domains.txt
+          domains="$(jq -Rsc 'split("\n") | map(gsub("^\\s+|\\s+$"; "")) | map(select(test("^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$|^[A-Za-z0-9]$"))) | unique' /tmp/ru-lite.domains.txt)"
+          previous="$(jq -c '.DirectSites' rkn-whitelist.json)"
+          if [ "$domains" = "$previous" ]; then echo 'Список не изменился.'; exit 0; fi
+          updated="$(date -u +%s)"
+          jq -n --arg updated "$updated" --argjson domains "$domains" '{Name:"INCY · Белый список RU Lite",GlobalProxy:"true",LastUpdated:$updated,RemoteDNSType:"DoH",RemoteDNSDomain:"https://cloudflare-dns.com/dns-query",RemoteDNSIP:"1.1.1.1",DomesticDNSType:"DoH",DomesticDNSDomain:"https://common.dot.dns.yandex.net/dns-query",DomesticDNSIP:"77.88.8.8",DirectSites:$domains,DirectIp:["127.0.0.0/8","10.0.0.0/8","100.64.0.0/10","169.254.0.0/16","172.16.0.0/12","192.168.0.0/16","224.0.0.0/4","255.255.255.255"],ProxySites:[],ProxyIp:[],BlockSites:[],BlockIp:[],DomainStrategy:"AsIs",FakeDNS:"false"}' > rkn-whitelist.json
+          printf 'window.INCY_RKN_WHITELIST = ' > rkn-whitelist.js
+          jq -c . rkn-whitelist.json >> rkn-whitelist.js
+          printf ';\n' >> rkn-whitelist.js
+      - name: Сохранить новую версию
+        run: |
+          if git diff --quiet -- rkn-whitelist.json rkn-whitelist.js; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add rkn-whitelist.json rkn-whitelist.js
+          git commit -m 'Обновить белый список RU Lite'
+          git push
