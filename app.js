@@ -19,7 +19,8 @@
     'Госуслуги':['gosuslugi.ru','esia.gosuslugi.ru']
   };
   const serviceIpSets = { 'Россия: IP':['geoip:ru'] };
-  const RKN_PROFILE_URL = 'https://raw.githubusercontent.com/JonesPitkin/nidox-incy-routing/main/dist/ru-direct-profile.json';
+  // jsDelivr returns CORS headers, unlike raw.githubusercontent.com in some browsers.
+  const RKN_PROFILE_URL = 'https://cdn.jsdelivr.net/gh/JonesPitkin/nidox-incy-routing@main/dist/ru-direct-profile.json';
   const RKN_CACHE_KEY = 'incy-rkn-whitelist-v1';
   const state = { tab:'json', autoUrl:'', serviceStates:{}, preset:'' };
   const shared = readSharedState();
